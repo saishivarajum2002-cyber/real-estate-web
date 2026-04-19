@@ -560,13 +560,13 @@ app.post('/api/visits', async (req, res) => {
       } catch (e) { console.error('WhatsApp Error:', e.message); }
     }
 
-    // ── Notify Agent (Dashboard & Email)
+    // ── Notify Agent (Dashboard Only - avoids duplicate email)
     await notifyAgent(agentEmail, {
       title: 'Tour Confirmed: ' + visit.client_name,
       description: `Property: ${visit.property_name}\nDate: ${visit.visit_date} at ${visit.visit_time}\nClient: ${visit.client_name} (${visit.client_phone || 'N/A'})`,
       type: 'booking',
-      icon: '✅',
-      emailSubject: `✅ NEW CONFIRMED VISIT: ${visit.client_name} → ${visit.property_name}`
+      icon: '✅'
+      // emailSubject removed here because we sent a detailed HTML alert above
     });
 
     return res.json({ success: true, supabaseSaved: true, mongodbSaved, id: realId });
