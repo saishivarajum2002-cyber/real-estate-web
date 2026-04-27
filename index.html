@@ -140,6 +140,17 @@
       font-family: 'Plus Jakarta Sans', sans-serif;
       border-radius: 6px
     }
+    .nav-toggle {
+      display: none;
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 22px;
+      cursor: pointer;
+      z-index: 101;
+    }
+    .nav.s .nav-toggle { color: var(--dark); }
+
 
     .nav-cta:hover {
       background: var(--blue-light);
@@ -1740,16 +1751,30 @@
     }
 
     @media(max-width:860px) {
-
-      .nav,
-      .nav.s {
-        padding: 18px 24px
-      }
-
+      .nav, .nav.s { padding: 14px 20px; }
       .nav-links {
-        display: none
+        display: none;
+        flex-direction: column;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--dark);
+        padding: 40px;
+        gap: 25px;
+        border-bottom: 1px solid rgba(255,255,255,0.05);
+        animation: fadeIn 0.3s ease;
       }
+      .nav-links.open { display: flex; }
+      .nav-links a { font-size: 14px; text-align: center; width: 100%; }
+      .nav-toggle { display: block; }
+      .nav-cta { display: none; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
+      .hero-content h1 { font-size: 2.8rem; }
+      .hero-sub { font-size: 14px; }
+      .sec h2 { font-size: 2rem; }
+      
       .hero-content {
         padding: 0 24px 60px
       }
@@ -2185,13 +2210,14 @@
 <body>
   <nav class="nav" id="nav">
     <div class="nav-logo" id="nav-logo">Sarah <span>Al-Rashid</span></div>
-    <ul class="nav-links">
-      <li><a onclick="goto('listings')">Listings</a></li>
-      <li><a onclick="goto('about')">About</a></li>
-      <li><a onclick="goto('search')">Search</a></li>
-      <li><a onclick="goto('contact')">Contact</a></li>
+    <ul class="nav-links" id="nav-links">
+      <li><a onclick="goto('listings');toggleMenu(false)">Listings</a></li>
+      <li><a onclick="goto('about');toggleMenu(false)">About</a></li>
+      <li><a onclick="goto('search');toggleMenu(false)">Search</a></li>
+      <li><a onclick="goto('contact');toggleMenu(false)">Contact</a></li>
     </ul>
     <button class="nav-cta" onclick="goto('contact')">Book Consultation</button>
+    <button class="nav-toggle" onclick="toggleMenu()"><i class="fas fa-bars"></i></button>
   </nav>
   <section class="hero">
     <div class="hero-bg"></div>
@@ -3133,6 +3159,17 @@
         return true;
       }
       return false;
+    }
+    function toggleMenu(force) {
+      const links = document.getElementById('nav-links');
+      const icon = document.querySelector('.nav-toggle i');
+      if(force === false) {
+        links.classList.remove('open');
+        icon.className = 'fas fa-bars';
+        return;
+      }
+      links.classList.toggle('open');
+      icon.className = links.classList.contains('open') ? 'fas fa-xmark' : 'fas fa-bars';
     }
     function openLoginModal() {
       var lmWrap = document.getElementById('lm-wrap');

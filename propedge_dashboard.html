@@ -2444,11 +2444,17 @@
       }
 
       .sidebar {
-        width: 100%;
+        position: relative;
+        left: 0; top: 0; bottom: auto;
+        width: 100% !important;
         height: auto;
-        border-right: none;
+        border-radius: 0;
+        margin: 0;
+        border: none;
         border-bottom: 1px solid var(--border);
       }
+      .sidebar:hover { width: 100% !important; }
+      .sidebar:hover ~ .main { margin-left: 0 !important; }
 
       .nav {
         display: flex;
@@ -2479,6 +2485,7 @@
       }
 
       .main {
+        margin-left: 0 !important;
         height: auto;
         overflow: visible;
       }
@@ -2522,7 +2529,8 @@
       .mkt-grid,
       .team-grid,
       .settings-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: 1fr !important;
+        gap: 16px;
       }
 
       .card-body {
