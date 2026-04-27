@@ -9,7 +9,7 @@ app.use(cors());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.static(path.join(__dirname, '..')));
 
-require('dotenv').config();
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 const { sendEmail } = require('../services/email');
 const {
   saveLeadToSupabase, saveVisitToSupabase,
@@ -985,12 +985,85 @@ app.post('/api/marketing/kit', async (req, res) => {
   }
 });
 
+
+
+// ──────────────────────────────────────────────────────────────────────────────
+// MARKETING - POST /api/marketing/whatsapp-blast  (REAL — Meta WhatsApp API)
+// ──────────────────────────────────────────────────────────────────────────────
+app.post('/api/marketing/whatsapp-blast', async (req, res) => {
+  try {
+    const { phone, message } = req.body;
+    if (!phone || !message) return res.status(400).json({ error: 'phone and message required' });
+
+    const { sendWhatsAppText } = require('../services/whatsapp');
+    const result = await sendWhatsAppText(phone, message);
+
+    console.log(`📱 WhatsApp Blast to ${phone}: ${result.success ? 'SENT' : 'FAILED'}`);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// SOCIAL PUBLISH - POST /api/social/publish  (Meta Graph API)
+// ──────────────────────────────────────────────────────────────────────────────
+app.post('/api/social/publish', async (req, res) => {
+  try {
+    const { platform, accessToken, mediaUrl, caption, pageId } = req.body;
+    if (!platform || !accessToken) return res.status(400).json({ error: 'platform and accessToken required' });
+
+    const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
+
+    if(platform === 'instagram') {
+      const igId = pageId || process.env.META_IG_USER_ID;
+      if(!igId) return res.status(400).json({ error: 'META_IG_USER_ID not set' });
+
+      // Step 1: Create container
+      const containerRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image_url: mediaUrl, caption, access_token: accessToken })
+      });
+      const container = await containerRes.json();
+      if (!container.id) return res.status(400).json({ error: 'IG container failed', detail: container });
+
+      // Step 2: Publish
+      const publishRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media_publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ creation_id: container.id, access_token: accessToken })
+      });
+      const published = await publishRes.json();
+      return res.json({ success: !!published.id, post_id: published.id, platform: 'instagram' });
+    }
+
+    if(platform === 'facebook') {
+      const fbPageId = pageId || process.env.META_FB_PAGE_ID;
+      if(!fbPageId) return res.status(400).json({ error: 'META_FB_PAGE_ID not set' });
+
+      const postRes = await fetch(`https://graph.facebook.com/v19.0/${fbPageId}/photos`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: mediaUrl, caption, access_token: accessToken, published: true })
+      });
+      const post = await postRes.json();
+      return res.json({ success: !!post.post_id, post_id: post.post_id, platform: 'facebook' });
+    }
+
+    return res.status(400).json({ error: 'Platform not supported yet: ' + platform });
+  } catch (error) {
+    console.error('Social Publish Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ──────────────────────────────────────────────────────────────────────────────
 // SERVER
 // ──────────────────────────────────────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
   const PORT = process.env.PORT || 5000;
-  app.listen(PORT, () => console.log(`🚀 PropEdge Server running on port ${PORT}`));
+  app.listen(PORT, () => console.log(`PropEdge Server running on port ${PORT}`));
 }
 
 module.exports = app;

@@ -1,5 +1,6 @@
 const { Resend } = require('resend');
-require('dotenv').config();
+const path = require('path');
+require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 /**
