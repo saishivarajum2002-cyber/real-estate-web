@@ -3160,8 +3160,8 @@
       return creds;
     }
     function checkSession() {
-      var sess = dg('pe_session');
-      if (sess && sess.expires > Date.now()) {
+      var sess = JSON.parse(sessionStorage.getItem('pe_session') || 'null');
+      if (sess && (!sess.expires || sess.expires > Date.now())) {
         var btn = document.getElementById('agent-access-btn');
         var lbl = document.getElementById('aa-label');
         if (btn) btn.classList.add('logged-in');
@@ -3216,8 +3216,8 @@
       var validUser = (user === creds.username) || (user === 'saishivaraju.m2002@gmail.com');
       var validPass = (pass === creds.password) || (pass === 'propedge123');
       if (validUser && validPass) {
-        // Save session for 8 hours
-        try { localStorage.setItem('pe_session', JSON.stringify({ expires: Date.now() + 8 * 60 * 60 * 1000 })); } catch (e) { }
+        // Save session (sessionStorage clears when tab closes)
+        try { sessionStorage.setItem('pe_session', JSON.stringify({ expires: Date.now() + 8 * 60 * 60 * 1000 })); } catch (e) { }
         errEl.style.display = 'none';
         document.getElementById('lm-form').style.display = 'none';
         document.getElementById('lm-success').style.display = 'block';
