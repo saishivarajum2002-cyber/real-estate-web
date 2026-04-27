@@ -2444,39 +2444,55 @@
       }
 
       .sidebar {
-        position: relative;
-        left: 0; top: 0; bottom: auto;
-        width: 100% !important;
-        height: auto;
-        border-radius: 0;
-        margin: 0;
-        border: none;
-        border-bottom: 1px solid var(--border);
+        display: none !important;
       }
-      .sidebar:hover { width: 100% !important; }
-      .sidebar:hover ~ .main { margin-left: 0 !important; }
-
-      .nav {
+      .mobile-nav {
         display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-        padding: 12px;
-        height: auto;
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        background: rgba(13, 18, 27, 0.95);
+        backdrop-filter: blur(20px);
+        border-top: 1px solid var(--border);
+        height: 70px;
+        z-index: 2000;
+        justify-content: space-around;
+        align-items: center;
+        padding-bottom: env(safe-area-inset-bottom);
       }
-
-      .nav-item {
-        width: auto;
-        margin: 0;
-        padding: 8px 12px;
-        font-size: 13px;
-        background: var(--surface2);
+      .m-nav-item {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        color: var(--muted);
+        text-decoration: none;
+        font-size: 10px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 8px;
+        flex: 1;
       }
+      .m-nav-item.active { color: var(--accent); }
+      .m-nav-item i { font-size: 18px; }
 
-      .nav-sec {
-        width: 100%;
-        text-align: left;
-        padding: 6px 4px;
-        margin-top: 5px;
+      .m-fab {
+        display: flex;
+        position: fixed;
+        bottom: 85px;
+        right: 20px;
+        width: 56px;
+        height: 56px;
+        background: var(--accent);
+        color: #000;
+        border-radius: 50%;
+        align-items: center;
+        justify-content: center;
+        font-size: 24px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+        z-index: 1500;
+        border: none;
+        cursor: pointer;
       }
 
       .sidebar-footer {
@@ -2518,10 +2534,37 @@
 
       .content {
         padding: 16px;
+        padding-bottom: 100px;
         overflow: visible;
       }
+      .hud-metrics { display: none; }
+      .topbar { padding: 15px; }
 
-      .stats-grid,
+      /* Card-ify tables on mobile */
+      .table thead { display: none; }
+      .table tr { 
+        display: flex; 
+        flex-direction: column; 
+        background: var(--surface2); 
+        margin-bottom: 15px; 
+        border-radius: 12px; 
+        padding: 15px;
+        border: 1px solid var(--border);
+      }
+      .table td { 
+        padding: 8px 0; 
+        border: none; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
+      }
+      .table td::before {
+        content: attr(data-label);
+        font-weight: 700;
+        font-size: 11px;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
       .dash-grid,
       .dash-grid.triple,
       .prop-grid,
@@ -2686,6 +2729,17 @@
 
     </nav>
   </aside>
+
+  <!-- MOBILE TOOLS -->
+  <nav class="mobile-nav">
+    <div class="m-nav-item active" id="m-dash" onclick="showPanel('dashboard',this,true)"><i class="fas fa-chart-line"></i><span>Dash</span></div>
+    <div class="m-nav-item" id="m-leads" onclick="showPanel('leads',this,true)"><i class="fas fa-bullseye"></i><span>Leads</span></div>
+    <div class="m-nav-item" id="m-bookings" onclick="showPanel('bookings',this,true)"><i class="fas fa-calendar-check"></i><span>Visits</span></div>
+    <div class="m-nav-item" id="m-marketing" onclick="showPanel('marketing',this,true)"><i class="fas fa-share-nodes"></i><span>Tools</span></div>
+    <div class="m-nav-item" id="m-settings" onclick="showPanel('settings',this,true)"><i class="fas fa-gear"></i><span>Settings</span></div>
+  </nav>
+
+  <button class="m-fab" onclick="openModal('addLead')"><i class="fas fa-plus"></i></button>
 
   <div class="main">
     <div class="topbar" style="background: rgba(13, 18, 27, 0.4); backdrop-filter: blur(15px); border-bottom: 1px solid var(--border); margin: 0 -30px 20px -20px; padding: 0 30px; height: 70px">
@@ -4873,17 +4927,17 @@
         const tempClass = l.score >= 80 ? 'temp-hot' : l.score >= 60 ? 'temp-warm' : 'temp-cold';
         return `
         <tr onclick="viewLead('${l.id}')" class="elite-table-row" style="cursor:pointer">
-          <td style="font-weight:600">
+          <td data-label="Name" style="font-weight:600">
             ${l.name}
             ${l.score >= 80 ? '<span class="badge badge-confirmed" style="margin-left:5px">HOT</span>' : ''}
           </td>
-          <td style="color:var(--muted)">${l.phone || '—'}</td>
-          <td style="font-size:12px">${l.property_interest || '—'}</td>
-          <td><span class="badge ${bc[l.status] || ''}">${l.status}</span></td>
-          <td><span class="score ${tempClass}" style="width:auto; padding:3px 10px; border-radius:12px">${getTemp(l.score)}</span></td>
-          <td>${getSourceBadge(l.source)}</td>
-          <td style="font-size:12px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.notes || '—'}</td>
-          <td onclick="event.stopPropagation()">
+          <td data-label="Phone" style="color:var(--muted)">${l.phone || '—'}</td>
+          <td data-label="Interest" style="font-size:12px">${l.property_interest || '—'}</td>
+          <td data-label="Status"><span class="badge ${bc[l.status] || ''}">${l.status}</span></td>
+          <td data-label="Score"><span class="score ${tempClass}" style="width:auto; padding:3px 10px; border-radius:12px">${getTemp(l.score)}</span></td>
+          <td data-label="Source">${getSourceBadge(l.source)}</td>
+          <td data-label="Notes" style="font-size:12px;color:var(--muted);max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${l.notes || '—'}</td>
+          <td data-label="Actions" onclick="event.stopPropagation()">
             <div style="display:flex;gap:5px">
               <button class="btn btn-primary btn-sm" onclick="openWhatsApp('${l.phone || ''}')" style="background:#25D366; border:none"><i class="fab fa-whatsapp"></i> Chat</button>
               <button class="btn btn-danger btn-sm" onclick="quickDeleteLead('${l.id}')"><i class="fas fa-trash-can"></i></button>
@@ -7108,6 +7162,20 @@ ${date}`;
       const bc = { 'New': 'badge-new', 'Contacted': 'badge-contacted', 'Closed': 'badge-closed' };
       const sc = s => s >= 80 ? 'score-h' : s >= 50 ? 'score-m' : 'score-l';
       document.getElementById('leads-tbody').innerHTML = filtered.map(l => `<tr><td style="font-weight:600">${l.name}</td><td style="color:var(--muted)">${l.phone || '—'}</td><td>${l.property_interest || '—'}</td><td><span class="badge ${bc[l.status] || ''}">${l.status}</span></td><td><span class="score ${sc(l.score)}">${l.score}</span></td><td>${l.source || '—'}</td><td>${l.notes || '—'}</td><td><button class="btn btn-ghost btn-sm" onclick="viewLead('${l.id}')"><i class="fas fa-eye"></i> View</button></td></tr>`).join('') || '<tr><td colspan="8" class="table-empty">No results</td></tr>';
+    }
+
+    function showPanel(id, el, isMobile) {
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panel-' + id).classList.add('active');
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      document.querySelectorAll('.m-nav-item').forEach(i => i.classList.remove('active'));
+      if(el) el.classList.add('active');
+      document.getElementById('panel-title').textContent = id.charAt(0).toUpperCase() + id.slice(1);
+      if(isMobile) {
+        // Sync desktop nav if possible
+        const dtNav = [...document.querySelectorAll('.nav-item')].find(i => i.textContent.toLowerCase().includes(id));
+        if(dtNav) dtNav.classList.add('active');
+      }
     }
 
     function openWhatsApp(phone) { const c = phone.replace(/\s/g, ''); if (c) window.open(`https://wa.me/${c.replace('+', '')}`, '_blank'); else toast('No phone number.', true); }
