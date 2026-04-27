@@ -2690,7 +2690,15 @@
   .pulse-red {
     width: 6px; height: 6px; background: var(--red); border-radius: 50%;
     box-shadow: 0 0 0 rgba(180,40,40, 0.4); animation: redPulse 1.5s infinite;
-  }   @keyframes redPulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(180,40,40, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(180,40,40, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(180,40,40, 0); } } </style>
+  }  .chat-msg { max-width: 85%; padding: 10px 14px; border-radius: 12px; font-size: 13px; line-height: 1.6; margin-bottom: 8px; position: relative; animation: slideIn 0.3s ease; }
+  .chat-msg.Aria { align-self: flex-start; background: rgba(240, 192, 64, .1); border: 1px solid rgba(240, 192, 64, .2); color: #fff; border-bottom-left-radius: 2px }
+  .chat-msg.User { align-self: flex-end; background: var(--surface2); border: 1px solid var(--border); color: #fff; border-bottom-right-radius: 2px }
+  .chat-role { font-size: 9px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; margin-bottom: 3px; display: block; opacity: .5 }
+  .outcome-badge { display: inline-block; padding: 3px 10px; border-radius: 4px; font-size: 10px; font-weight: 800; text-transform: uppercase }
+  .out-booked { background: rgba(46, 204, 138, .15); color: var(--green); }
+  .out-pros { background: rgba(64, 144, 240, .15); color: var(--blue); }
+  .out-fail { background: rgba(224, 80, 96, .15); color: var(--red); }
+  @keyframes redPulse { 0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(180,40,40, 0.7); } 70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(180,40,40, 0); } 100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(180,40,40, 0); } } </style>
 </head>
 
 <body onload="init()">
@@ -2718,6 +2726,7 @@
     <nav class="nav">
       <div class="nav-item active" onclick="showPanel('dashboard',this)"><span class="nav-icon"><i class="fas fa-chart-line"></i></span><span class="nav-label">Dashboard</span></div>
       <div class="nav-item" onclick="showPanel('leads',this)"><span class="nav-icon"><i class="fas fa-bullseye"></i></span><span class="nav-label">Leads</span><div class="nav-badge red" id="badge-leads" style="display:none">0</div></div>
+      <div class="nav-item" onclick="showPanel('calls',this)"><span class="nav-icon"><i class="fas fa-phone-volume"></i></span><span class="nav-label">Calls</span><div class="nav-badge red" id="badge-calls" style="display:none">0</div></div>
       <div class="nav-item" onclick="showPanel('pipeline',this)"><span class="nav-icon"><i class="fas fa-bolt"></i></span><span class="nav-label">Pipeline</span></div>
       <div class="nav-item" onclick="showPanel('properties',this)"><span class="nav-icon"><i class="fas fa-house"></i></span><span class="nav-label">Properties</span><div class="nav-badge" id="badge-props" style="display:none">0</div></div>
       <div class="nav-item" onclick="showPanel('bookings',this)"><span class="nav-icon"><i class="fas fa-calendar-check"></i></span><span class="nav-label">Visits</span><div class="nav-badge green" id="badge-bookings" style="display:none">0</div></div>
@@ -2742,6 +2751,7 @@
   <nav class="mobile-nav">
     <div class="m-nav-item active" id="m-dash" onclick="showPanel('dashboard',this,true)"><i class="fas fa-chart-line"></i><span>Dash</span></div>
     <div class="m-nav-item" id="m-leads" onclick="showPanel('leads',this,true)"><i class="fas fa-bullseye"></i><span>Leads</span></div>
+    <div class="m-nav-item" id="m-calls" onclick="showPanel('calls',this,true)"><i class="fas fa-phone-volume"></i><span>Calls</span></div>
     <div class="m-nav-item" id="m-bookings" onclick="showPanel('bookings',this,true)"><i class="fas fa-calendar-check"></i><span>Visits</span></div>
     <div class="m-nav-item" id="m-marketing" onclick="showPanel('marketing',this,true)"><i class="fas fa-share-nodes"></i><span>Tools</span></div>
     <div class="m-nav-item" id="m-settings" onclick="showPanel('settings',this,true)"><i class="fas fa-gear"></i><span>Settings</span></div>
@@ -2943,7 +2953,37 @@
         </div>
       </div>
 
-      <!-- LEADS -->
+      <!-- CALLS -->
+      <div class="panel" id="panel-calls">
+        <div class="head-row">
+           <div class="panel-tag">Intelligence</div>
+           <h2>Call Conversation History</h2>
+           <p>Review every AI phone interaction and customer sentiment.</p>
+        </div>
+
+        <div class="card">
+           <div class="card-body" style="padding:0">
+              <table class="elite-table">
+                 <thead>
+                    <tr>
+                       <th>Lead</th>
+                       <th>Final Outcome</th>
+                       <th>Duration</th>
+                       <th>Time</th>
+                       <th>Dialogue</th>
+                    </tr>
+                 </thead>
+                 <tbody id="calls-table-body">
+                    <!-- Loaded via JS -->
+                 </tbody>
+              </table>
+              <div id="calls-empty" style="display:none; padding:60px; text-align:center; color:var(--muted)">
+                 <div style="font-size:40px; opacity:0.1; margin-bottom:10px"><i class="fas fa-phone-slash"></i></div>
+                 No calls handled by Aria jet.
+              </div>
+           </div>
+        </div>
+      </div>
       <div class="panel" id="panel-leads">
         <div class="sec-head">
           <div class="sec-title">Lead Management</div><button class="btn btn-primary" onclick="openModal('addLead')">+ New Lead</button>
@@ -4278,6 +4318,7 @@
               state.bookings = syncedBookings;
 
               state.notifications = DB.getAll(DB.NOTIFICATIONS);
+              state.calls = DB.getAll('pe_calls');
 
               // Check for new items from website sync
               if (state.notifications.length > oldNotifs) {
@@ -4481,6 +4522,7 @@
         state.properties = DB.getAll(DB.PROPERTIES);
         state.bookings = allBookings;
         state.notifications = DB.getAll(DB.NOTIFICATIONS);
+        state.calls = DB.getAll('pe_calls');
         state.options = DB.get('pe_opts') || { email: true, sms: true, whatsapp: true, auto: true };
 
         // 2. Initial Render (Instant)
@@ -4595,6 +4637,7 @@
       renderBadges();
       renderDashboard();
       renderLeads();
+      renderCalls();
       renderPipeline();
       renderProperties();
       renderBookings();
@@ -4956,6 +4999,77 @@
     }
 
 
+
+    function renderCalls() {
+      const calls = DB.getAll('pe_calls');
+      const body = document.getElementById('calls-table-body');
+      const empty = document.getElementById('calls-empty');
+      if(!body) return;
+
+      if(!calls.length) {
+        body.innerHTML = '';
+        empty.style.display = 'block';
+        return;
+      }
+
+      empty.style.display = 'none';
+      body.innerHTML = calls.map(c => `
+        <tr class="elite-table-row" onclick="viewTranscript('${c.id}')" style="cursor:pointer">
+          <td style="font-weight:700">${c.lead_name || 'Inbound Call'}</td>
+          <td><span class="outcome-badge out-${(c.outcome || 'pros').toLowerCase()}">${c.outcome || 'Prospective'}</span></td>
+          <td style="color:var(--muted)">${c.duration || '0:45'}</td>
+          <td style="font-size:12px">${new Date(c.created_at).toLocaleString()}</td>
+          <td><button class="btn btn-primary btn-sm"><i class="fas fa-message"></i> Read</button></td>
+        </tr>
+      `).join('');
+      
+      const badge = document.getElementById('badge-calls');
+      if(badge) {
+        badge.textContent = calls.length;
+        badge.style.display = calls.length > 0 ? 'inline-block' : 'none';
+      }
+    }
+
+    function viewTranscript(id) {
+       const calls = DB.getAll('pe_calls');
+       const c = calls.find(x => x.id === id);
+       if(!c) return;
+
+       const modal = document.createElement('div');
+       modal.className = 'modal-overlay open';
+       modal.onclick = (e) => { if(e.target === modal) document.body.removeChild(modal); };
+
+       const transcriptHtml = (c.transcript || []).map(m => `
+         <div class="chat-msg ${m.role}">
+            <span class="chat-role">${m.role}</span>
+            ${m.content}
+         </div>
+       `).join('') || '<div style="text-align:center; color:var(--muted); padding:20px">No transcript captured.</div>';
+
+       modal.innerHTML = `
+         <div class="modal" style="width:500px">
+           <div class="modal-title">Conversation with Aria</div>
+           <div class="modal-close" onclick="this.closest('.modal-overlay').remove()">✕</div>
+           <div style="background:var(--surface2); padding:12px; border-radius:8px; margin-bottom:20px; font-size:12px">
+              <div style="display:flex; justify-content:space-between">
+                <span style="color:var(--muted)">Outcome:</span>
+                <span style="font-weight:800; color:var(--accent)">${c.outcome}</span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-top:5px">
+                <span style="color:var(--muted)">Duration:</span>
+                <span>${c.duration}</span>
+              </div>
+           </div>
+           <div style="display:flex; flex-direction:column; gap:10px; max-height:400px; overflow-y:auto; padding:10px; border:1px solid var(--border); border-radius:12px">
+              ${transcriptHtml}
+           </div>
+           <div class="modal-footer">
+              <button class="btn btn-primary" onclick="this.closest('.modal-overlay').remove()">Close</button>
+           </div>
+         </div>
+       `;
+       document.body.appendChild(modal);
+    }
 
     function renderPipeline() {
       const groups = { New: [], Contacted: [], Negotiation: [], Closed: [] };

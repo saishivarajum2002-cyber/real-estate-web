@@ -22,6 +22,43 @@ const {
   sendBookingCreatedMsg, sendBookingConfirmedMsg, sendVisitReminderMsg, sendNewLeadNotification
 } = require('../services/whatsapp');
 
+// ── AI Voice Agent
+const AI_VOICE_URL = process.env.AI_VOICE_URL || 'http://localhost:3000';
+
+async function triggerAICall(lead) {
+  try {
+    const { default: fetch } = await import('node-fetch');
+    const resp = await fetch(`${AI_VOICE_URL}/outbound-call`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ lead }),
+    });
+    const data = await resp.json();
+    console.log(`📞 AI Call triggered → SID: ${data.callSid || 'N/A'}`);
+    return data;
+  } catch (err) {
+    console.error('❌ AI Call trigger failed (non-blocking):', err.message);
+    return { success: false };
+  }
+}
+
+async function triggerReminderCall(visit) {
+  try {
+    const { default: fetch } = await import('node-fetch');
+    const resp = await fetch(`${AI_VOICE_URL}/outbound-reminder`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ visit }),
+    });
+    const data = await resp.json();
+    console.log(`⏰ Reminder call triggered → SID: ${data.callSid || 'N/A'}`);
+    return data;
+  } catch (err) {
+    console.error('❌ Reminder call trigger failed (non-blocking):', err.message);
+    return { success: false };
+  }
+}
+
 // ──────────────────────────────────────────────────────────────────────────────
 // AGENT CONFIG
 // ──────────────────────────────────────────────────────────────────────────────
@@ -435,27 +472,32 @@ app.post('/api/whatsapp', async (req, res) => {
 // PROPERTY VISITS — POST /api/visits (gated by qualification + agreement)
 // ──────────────────────────────────────────────────────────────────────────────
 app.post('/api/visits', async (req, res) => {
-  const { agentEmail, visit } = req.body;
+  const { agentEmail, visit, is_ai_booking } = req.body;
   try {
     if (!agentEmail || !visit) return res.status(400).json({ error: 'agentEmail and visit required' });
 
-    // ── GATE 1: Qualification Check
-    if (visit.qualification_token) {
-      const qualRes = await getQualification(visit.qualification_token);
-      if (!qualRes.success) {
-        return res.status(403).json({ error: 'Invalid qualification. Please complete AI pre-qualification first.', code: 'QUAL_REQUIRED' });
+    // ── AI Booking Bypass: When Aria books via voice call, skip digital gates
+    if (!is_ai_booking) {
+      // ── GATE 1: Qualification Check
+      if (visit.qualification_token) {
+        const qualRes = await getQualification(visit.qualification_token);
+        if (!qualRes.success) {
+          return res.status(403).json({ error: 'Invalid qualification. Please complete AI pre-qualification first.', code: 'QUAL_REQUIRED' });
+        }
+        if (!qualRes.data.is_qualified) {
+          return res.status(403).json({ error: 'Qualification score too low to book online. Please contact agent.', code: 'QUAL_FAILED' });
+        }
       }
-      if (!qualRes.data.is_qualified) {
-        return res.status(403).json({ error: 'Qualification score too low to book online. Please contact agent.', code: 'QUAL_FAILED' });
-      }
-    }
 
-    // ── GATE 2: Agreement Check
-    if (visit.agreement_token) {
-      const agreeRes = await getAgreement(visit.agreement_token);
-      if (!agreeRes.success) {
-        return res.status(403).json({ error: 'Buyer Agreement not found. Please sign the agreement first.', code: 'AGREE_REQUIRED' });
+      // ── GATE 2: Agreement Check
+      if (visit.agreement_token) {
+        const agreeRes = await getAgreement(visit.agreement_token);
+        if (!agreeRes.success) {
+          return res.status(403).json({ error: 'Buyer Agreement not found. Please sign the agreement first.', code: 'AGREE_REQUIRED' });
+        }
       }
+    } else {
+      console.log('🤖 AI booking bypass — skipping qualification/agreement gates');
     }
 
     // ── Double Booking Check
@@ -716,6 +758,50 @@ app.get('/api/cron/reminders', async (req, res) => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
+// AI REMINDER CALLS — GET /api/cron/reminder-calls
+// Finds visits happening 2 hours from now and places a Twilio reminder call.
+// Run this every 15 minutes via an external cron or Vercel cron job.
+// ──────────────────────────────────────────────────────────────────────────────
+app.get('/api/cron/reminder-calls', async (req, res) => {
+  try {
+    const now        = new Date();
+    const targetTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // +2 hours
+    const dateStr    = targetTime.toISOString().split('T')[0];
+    const hourStr    = String(targetTime.getHours()).padStart(2, '0');
+    const minStr     = String(targetTime.getMinutes()).padStart(2, '0');
+    const timePrefix = `${hourStr}:${minStr}`;
+
+    console.log(`⏰ Reminder Calls Cron → looking for visits on ${dateStr} around ${timePrefix}`);
+
+    const visits = await getVisitsByDate(dateStr);
+    if (!visits.success || !visits.data.length) {
+      return res.json({ success: true, message: 'No visits found for the reminder window.' });
+    }
+
+    let calledCount = 0;
+    for (const v of visits.data) {
+      if (v.status !== 'confirmed') continue;
+      const visitTimeStr = String(v.visit_time).trim().substring(0, 5); // HH:MM
+      // Only call if within ±10 minutes of target
+      const [vh, vm] = visitTimeStr.split(':').map(Number);
+      const [th, tm] = [targetTime.getHours(), targetTime.getMinutes()];
+      const diffMins = Math.abs((vh * 60 + vm) - (th * 60 + tm));
+      if (diffMins > 10) continue;
+
+      if (v.client_phone) {
+        await triggerReminderCall(v);
+        calledCount++;
+      }
+    }
+
+    res.json({ success: true, calledCount, dateStr, timePrefix });
+  } catch (error) {
+    console.error('Reminder Calls Cron Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
 // DELETE VISIT — DELETE /api/visits/:id
 // ──────────────────────────────────────────────────────────────────────────────
 app.delete('/api/visits/:id', async (req, res) => {
@@ -796,6 +882,41 @@ app.post('/api/ai/pitch', async (req, res) => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
+// AI — Live Property Sync
+// Exposes the flattened property list to Aria Voice Agent
+// ──────────────────────────────────────────────────────────────────────────────
+app.get('/api/ai/properties', async (req, res) => {
+  try {
+    const agentEmail = AGENT_EMAIL;
+    const snapshot   = await DataSnapshot.findOne({ email: agentEmail });
+    
+    if (!snapshot || !snapshot.data || !snapshot.data.pe_properties) {
+      return res.json({ success: true, count: 0, properties: [] });
+    }
+
+    let properties = snapshot.data.pe_properties;
+    if (typeof properties === 'string') {
+      try { properties = JSON.parse(properties); } catch(e) { properties = []; }
+    }
+
+    // Map to a cleaner format Aria likes
+    const formatted = properties.map(p => ({
+      id:            p.id,
+      name:          p.name || p.title || 'Property',
+      location:      p.location || 'N/A',
+      price:         p.price_label || p.price || 'Contact Agent',
+      property_type: p.property_type || 'apartment',
+      features:      p.features || '',
+      available:     p.status === 'available' || true
+    }));
+
+    res.json({ success: true, count: formatted.length, properties: formatted });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
 // LEADS — POST /api/leads
 // ──────────────────────────────────────────────────────────────────────────────
 app.post('/api/leads', async (req, res) => {
@@ -867,6 +988,15 @@ app.post('/api/leads', async (req, res) => {
       }
     }
 
+    // ── ⚡ INSTANT AI CALL — triggered within seconds of lead arrival
+    if (lead.phone) {
+      triggerAICall(lead).then(result => {
+        if (result.success || result.callSid) {
+          console.log(`⚡ Instant AI call fired for ${lead.name} (${lead.phone})`);
+        }
+      });
+    }
+
     // ── Notify Agent (Dashboard & Email)
     await notifyAgent(agentEmail, {
       title: '🔥 New Lead: ' + lead.name,
@@ -876,8 +1006,10 @@ app.post('/api/leads', async (req, res) => {
       emailSubject: `🔔 New Lead: ${lead.name}`
     });
 
+    const finalSuccess = mongodbSaved || supabaseResult.success || emailResult.success;
+
     res.json({
-      success: isSuccess,
+      success: finalSuccess,
       supabaseSaved: supabaseResult.success,
       mongodbSaved,
       emailSent: emailResult.success,
@@ -927,6 +1059,83 @@ app.post('/api/notify-lead', async (req, res) => {
     res.json({ success: true, emailSent: emailResult.success });
   } catch (error) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CALLS — POST /api/calls
+// ──────────────────────────────────────────────────────────────────────────────
+app.post('/api/calls', async (req, res) => {
+  try {
+    const { agentEmail, call } = req.body;
+    if (!agentEmail || !call) return res.status(400).json({ error: 'agentEmail and call data required' });
+
+    console.log(`📞 Saving call log for ${agentEmail} (Lead: ${call.leadName})`);
+
+    let snapshot = await DataSnapshot.findOne({ email: agentEmail });
+    if (!snapshot) snapshot = new DataSnapshot({ email: agentEmail, data: {} });
+    if (!snapshot.data) snapshot.data = {};
+
+    let calls = snapshot.data.pe_calls || [];
+    const wasString = typeof calls === 'string';
+    if (wasString) {
+      try { calls = JSON.parse(calls); } catch(e) { calls = []; }
+    }
+
+    call.created_at = call.created_at || new Date().toISOString();
+    call.id = call.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+    calls.unshift(call);
+
+    // Keep only last 100 calls to save space
+    if (calls.length > 100) calls = calls.slice(0, 100);
+
+    snapshot.data.pe_calls = wasString ? JSON.stringify(calls) : calls;
+    snapshot.markModified('data');
+    await snapshot.save();
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Call Log Error:', error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ──────────────────────────────────────────────────────────────────────────────
+// CALL LOGGING
+// ──────────────────────────────────────────────────────────────────────────────
+app.post('/api/calls', async (req, res) => {
+  try {
+    const { email, call } = req.body;
+    if (!email || !call) return res.status(400).json({ error: 'Missing data' });
+
+    // Update the agent's data snapshot in MongoDB
+    const snapshot = await DataSnapshot.findOne({ email });
+    if (snapshot) {
+      let data = snapshot.data;
+      // Handle potential stringification in MongoDB
+      if (typeof data === 'string') data = JSON.parse(data);
+      
+      let calls = data.pe_calls || [];
+      if (typeof calls === 'string') calls = JSON.parse(calls);
+      
+      calls.unshift({
+        ...call,
+        id: 'call_' + Date.now(),
+        created_at: new Date().toISOString()
+      });
+      
+      data.pe_calls = calls;
+      snapshot.data = data;
+      // Mark for sub-doc changes if needed (Mongoose)
+      snapshot.markModified('data');
+      await snapshot.save();
+      console.log(`📑 Call logged for ${email} -> Outcome: ${call.outcome}`);
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Call logging error:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 
