@@ -215,7 +215,7 @@
     }
 
     body {
-      background: var(--bg);
+      background: #000;
       color: var(--text);
       font-family: var(--font-body);
       overflow: hidden;
@@ -235,7 +235,8 @@
     .ambient-bg {
       position: fixed;
       inset: 0;
-      z-index: -1;
+      z-index: 0;
+      background: var(--bg);
       overflow: hidden;
       pointer-events: none;
     }
@@ -248,8 +249,8 @@
       opacity: 0.05;
       animation: float-orb 20s infinite alternate;
     }
-    .orb-1 { background: var(--accent); top: -10%; right: -5%; }
-    .orb-2 { background: var(--blue); bottom: -10%; left: -5%; animation-delay: -5s; }
+    .orb-1 { background: var(--accent); top: -10%; right: -5%; opacity: 0.15; }
+    .orb-2 { background: var(--blue); bottom: -10%; left: -5%; opacity: 0.1; animation-delay: -5s; }
     @keyframes float-orb {
       from { transform: translate(0,0) scale(1); }
       to { transform: translate(50px, 30px) scale(1.1); }
@@ -386,8 +387,10 @@
       flex-direction: column;
       height: 100vh;
       transition: margin-left 0.4s cubic-bezier(0.19, 1, 0.22, 1);
-      padding: 0 30px 20px 20px;
+      padding: 0 40px 20px 20px;
       overflow: hidden;
+      position: relative;
+      z-index: 10;
     }
 
 
@@ -2438,10 +2441,7 @@
       background: transparent
     }
 
-    ::-webkit-scrollbar-thumb {
-      background: var(--border);
-      border-radius: 3px
-    }
+    .mobile-nav, .m-fab { display: none; }
 
     /* MOBILE RESPONSIVE CSS */
     @media (max-width: 900px) {
