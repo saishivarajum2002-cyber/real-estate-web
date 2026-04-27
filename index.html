@@ -1771,12 +1771,17 @@
       .nav-cta { display: none; }
       @keyframes fadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
 
-      .hero-content h1 { font-size: 2.8rem; }
-      .hero-sub { font-size: 14px; }
-      .sec h2 { font-size: 2rem; }
+      .hero-content h1 { font-size: 2.2rem; line-height: 1.1; }
+      .hero-sub { font-size: 13px; max-width: 100%; }
+      .sec h2 { font-size: 1.8rem; }
+      .lbl { font-size: 10px; }
       
+      .lpop-body { padding: 20px; }
+      .lpop-title { font-size: 1.4rem; }
+      .lpop-sub { font-size: 12px; margin-bottom: 15px; }
+
       .hero-content {
-        padding: 0 24px 60px
+        padding: 0 20px 50px
       }
 
       .h-stats {
@@ -1784,13 +1789,14 @@
       }
 
       .sec {
-        padding: 70px 24px
+        padding: 50px 20px
       }
 
       .about-grid,
       .test-grid,
       .ft {
-        grid-template-columns: 1fr
+        grid-template-columns: 1fr;
+        gap: 40px;
       }
 
       .about-acc {
@@ -1815,20 +1821,24 @@
       }
 
       .sticky-cta {
-        padding: 14px 24px
+        padding: 12px 20px
       }
 
       .sticky-cta-text {
-        font-size: 0.9rem
+        font-size: 0.85rem
       }
 
       .flow-box {
-        max-width: 95%
+        max-width: 95%;
+        margin: 10px;
       }
 
       .m-body {
-        padding: 24px
+        padding: 18px
       }
+      .m-title, .m-price { font-size: 1.6rem; }
+      .m-tags { margin: 10px 0; }
+      .btn-od, .btn-g { padding: 12px 20px; font-size: 10px; }
     }
 
     footer {
