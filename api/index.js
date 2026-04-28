@@ -19,7 +19,7 @@ const {
 } = require('../services/supabase');
 const { generateDescription, generateSocialMarketingKit } = require('../services/ai');
 const {
-  sendBookingCreatedMsg, sendBookingConfirmedMsg, sendVisitReminderMsg, sendNewLeadNotification
+  sendBookingCreatedMsg, sendBookingConfirmedMsg, sendVisitReminderMsg, sendNewLeadNotification, sendAICallLink
 } = require('../services/whatsapp');
 
 // ── AI Voice Agent
@@ -149,19 +149,19 @@ function calcQualificationScore(budget, bhkPref, preApproval) {
 
 async function notifyAgent(agentEmail, { title, description, type, icon, emailSubject }) {
   console.log(`🔔 Notifying Agent [${agentEmail}]: ${title}`);
-  
+
   // 1. Dashboard Notification (MongoDB Snapshot)
   try {
     let snapshot = await DataSnapshot.findOne({ email: agentEmail });
     if (!snapshot) snapshot = new DataSnapshot({ email: agentEmail, data: {} });
     if (!snapshot.data) snapshot.data = {};
-    
+
     let notifs = snapshot.data.pe_notifications || [];
     const wasString = typeof notifs === 'string';
     if (wasString) {
-      try { notifs = JSON.parse(notifs); } catch(e) { notifs = []; }
+      try { notifs = JSON.parse(notifs); } catch (e) { notifs = []; }
     }
-    
+
     notifs.unshift({
       id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
       title,
@@ -171,10 +171,10 @@ async function notifyAgent(agentEmail, { title, description, type, icon, emailSu
       is_read: false,
       created_at: new Date().toISOString()
     });
-    
+
     // Cap at 50
     if (notifs.length > 50) notifs = notifs.slice(0, 50);
-    
+
     snapshot.data.pe_notifications = wasString ? JSON.stringify(notifs) : notifs;
     snapshot.markModified('data');
     await snapshot.save();
@@ -264,13 +264,13 @@ app.post('/api/qualify', async (req, res) => {
       let snapshot = await DataSnapshot.findOne({ email: agentEmail });
       if (!snapshot) snapshot = new DataSnapshot({ email: agentEmail, data: {} });
       if (!snapshot.data) snapshot.data = {};
-      
+
       let quals = snapshot.data.pe_qualifications || [];
       const wasString = typeof quals === 'string';
       if (wasString) {
-        try { quals = JSON.parse(quals); } catch(e) { quals = []; }
+        try { quals = JSON.parse(quals); } catch (e) { quals = []; }
       }
-      
+
       quals.unshift({ ...qualification, id: sessionToken, created_at: new Date().toISOString() });
       snapshot.data.pe_qualifications = wasString ? JSON.stringify(quals) : quals;
       snapshot.markModified('data');
@@ -542,21 +542,21 @@ app.post('/api/visits', async (req, res) => {
     try {
       let snapshot = await DataSnapshot.findOne({ email: agentEmail });
       if (!snapshot) snapshot = new DataSnapshot({ email: agentEmail, data: { pe_bookings: [] } });
-      
+
       let bookings = snapshot.data.pe_bookings || [];
       // Handle the case where the frontend stored this as a stringified JSON in MongoDB
       if (typeof bookings === 'string') {
-        try { bookings = JSON.parse(bookings); } catch(e) { bookings = []; }
+        try { bookings = JSON.parse(bookings); } catch (e) { bookings = []; }
       }
-      
+
       const newVisit = { ...visit, id: realId, status: 'confirmed', created_at: new Date().toISOString() };
       bookings.unshift(newVisit);
-      
+
       // Keep it consistent with dashboard's preference if it was a string
-      snapshot.data.pe_bookings = typeof snapshot.data.pe_bookings === 'string' 
-        ? JSON.stringify(bookings) 
+      snapshot.data.pe_bookings = typeof snapshot.data.pe_bookings === 'string'
+        ? JSON.stringify(bookings)
         : bookings;
-        
+
       snapshot.markModified('data');
       await snapshot.save();
       mongodbSaved = true;
@@ -660,7 +660,7 @@ app.patch('/api/visits/:id', async (req, res) => {
 
           // WhatsApp follow-up on confirmation
           if (isConfirmed && v.client_phone) {
-            try { await sendBookingConfirmedMsg(v.client_phone, v); } catch (e) {}
+            try { await sendBookingConfirmedMsg(v.client_phone, v); } catch (e) { }
           }
         }
 
@@ -672,9 +672,9 @@ app.patch('/api/visits/:id', async (req, res) => {
               let notifs = snapshot.data.pe_notifications || [];
               const wasString = typeof notifs === 'string';
               if (wasString) {
-                try { notifs = JSON.parse(notifs); } catch(e) { notifs = []; }
+                try { notifs = JSON.parse(notifs); } catch (e) { notifs = []; }
               }
-              
+
               notifs.unshift({
                 id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
                 title: `Visit ${isConfirmed ? 'Confirmed' : 'Rejected'}: ${v.client_name}`,
@@ -682,12 +682,12 @@ app.patch('/api/visits/:id', async (req, res) => {
                 type: 'booking', icon: isConfirmed ? '✅' : '❌', is_read: false,
                 created_at: new Date().toISOString()
               });
-              
+
               snapshot.data.pe_notifications = wasString ? JSON.stringify(notifs) : notifs;
               snapshot.markModified('data');
               await snapshot.save();
             }
-          } catch (e) {}
+          } catch (e) { }
         }
       }
     } catch (e) { console.error('Notification Error in PATCH:', e.message); }
@@ -706,9 +706,9 @@ app.get('/api/cron/reminders', async (req, res) => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const dateStr = tomorrow.toISOString().split('T')[0];
-    
+
     console.log(`⏰ Running Reminders Cron for: ${dateStr}`);
-    
+
     const visits = await getVisitsByDate(dateStr);
     if (!visits.success || !visits.data.length) {
       return res.json({ success: true, message: 'No visits scheduled for tomorrow.' });
@@ -739,7 +739,7 @@ app.get('/api/cron/reminders', async (req, res) => {
             </div>
             <div style="background:#1a1a18;padding:14px;text-align:center"><p style="color:#888;font-size:12px;margin:0">PropEdge Real Estate</p></div>
           </div>`;
-        
+
         await sendEmail({
           to: v.client_email,
           subject: `⏰ Reminder: Your visit to ${v.property_name} is tomorrow`,
@@ -764,11 +764,11 @@ app.get('/api/cron/reminders', async (req, res) => {
 // ──────────────────────────────────────────────────────────────────────────────
 app.get('/api/cron/reminder-calls', async (req, res) => {
   try {
-    const now        = new Date();
+    const now = new Date();
     const targetTime = new Date(now.getTime() + 2 * 60 * 60 * 1000); // +2 hours
-    const dateStr    = targetTime.toISOString().split('T')[0];
-    const hourStr    = String(targetTime.getHours()).padStart(2, '0');
-    const minStr     = String(targetTime.getMinutes()).padStart(2, '0');
+    const dateStr = targetTime.toISOString().split('T')[0];
+    const hourStr = String(targetTime.getHours()).padStart(2, '0');
+    const minStr = String(targetTime.getMinutes()).padStart(2, '0');
     const timePrefix = `${hourStr}:${minStr}`;
 
     console.log(`⏰ Reminder Calls Cron → looking for visits on ${dateStr} around ${timePrefix}`);
@@ -816,9 +816,9 @@ app.delete('/api/visits/:id', async (req, res) => {
         let bookings = snapshot.data.pe_bookings;
         let wasString = typeof bookings === 'string';
         if (wasString) {
-          try { bookings = JSON.parse(bookings); } catch(e) { bookings = []; }
+          try { bookings = JSON.parse(bookings); } catch (e) { bookings = []; }
         }
-        
+
         if (Array.isArray(bookings)) {
           snapshot.data.pe_bookings = bookings.filter(v => v.id !== id);
           if (wasString) snapshot.data.pe_bookings = JSON.stringify(snapshot.data.pe_bookings);
@@ -888,26 +888,26 @@ app.post('/api/ai/pitch', async (req, res) => {
 app.get('/api/ai/properties', async (req, res) => {
   try {
     const agentEmail = AGENT_EMAIL;
-    const snapshot   = await DataSnapshot.findOne({ email: agentEmail });
-    
+    const snapshot = await DataSnapshot.findOne({ email: agentEmail });
+
     if (!snapshot || !snapshot.data || !snapshot.data.pe_properties) {
       return res.json({ success: true, count: 0, properties: [] });
     }
 
     let properties = snapshot.data.pe_properties;
     if (typeof properties === 'string') {
-      try { properties = JSON.parse(properties); } catch(e) { properties = []; }
+      try { properties = JSON.parse(properties); } catch (e) { properties = []; }
     }
 
     // Map to a cleaner format Aria likes
     const formatted = properties.map(p => ({
-      id:            p.id,
-      name:          p.name || p.title || 'Property',
-      location:      p.location || 'N/A',
-      price:         p.price_label || p.price || 'Contact Agent',
+      id: p.id,
+      name: p.name || p.title || 'Property',
+      location: p.location || 'N/A',
+      price: p.price_label || p.price || 'Contact Agent',
       property_type: p.property_type || 'apartment',
-      features:      p.features || '',
-      available:     p.status === 'available' || true
+      features: p.features || '',
+      available: p.status === 'available' || true
     }));
 
     res.json({ success: true, count: formatted.length, properties: formatted });
@@ -934,17 +934,17 @@ app.post('/api/leads', async (req, res) => {
       let snapshot = await DataSnapshot.findOne({ email: agentEmail });
       if (!snapshot) snapshot = new DataSnapshot({ email: agentEmail, data: {} });
       if (!snapshot.data) snapshot.data = {};
-      
+
       let leads = snapshot.data.pe_leads || [];
       const wasString = typeof leads === 'string';
       if (wasString) {
-        try { leads = JSON.parse(leads); } catch(e) { leads = []; }
+        try { leads = JSON.parse(leads); } catch (e) { leads = []; }
       }
-      
+
       lead.created_at = lead.created_at || new Date().toISOString();
       lead.id = lead.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
       leads.unshift(lead);
-      
+
       snapshot.data.pe_leads = wasString ? JSON.stringify(leads) : leads;
       snapshot.markModified('data');
       await snapshot.save();
@@ -961,7 +961,7 @@ app.post('/api/leads', async (req, res) => {
     } catch (e) { emailResult.error = e.message; }
 
     // WhatsApp to agent if phone configured
-    try { await sendNewLeadNotification('+919999999999', lead); } catch (e) {}
+    try { await sendNewLeadNotification('+919999999999', lead); } catch (e) { }
 
     // ── Speed-to-Lead Auto Responder for the LEAD
     if (req.body.autoRespond === true) {
@@ -986,6 +986,8 @@ app.post('/api/leads', async (req, res) => {
           console.error('Auto-Responder WA failed:', e.message);
         }
       }
+      // 🚀 NEW: Send AI Voice Call Link to the Lead via WhatsApp
+      try { await sendAICallLink(lead.phone, lead); } catch (e) { console.error('WA AI Link Error:', e.message); }
     }
 
     // ── ⚡ INSTANT AI CALL — triggered within seconds of lead arrival
@@ -996,17 +998,8 @@ app.post('/api/leads', async (req, res) => {
         }
       });
 
-      // 📱 NEW: Cloud Mailbox for Laptop-Free AI (MongoDB Permanent)
-      try {
-        let snapshot = await DataSnapshot.findOne({ email: agentEmail });
-        if (!snapshot) snapshot = new DataSnapshot({ email: agentEmail, data: {} });
-        if (!snapshot.data) snapshot.data = {};
-        if (!snapshot.data.pe_pending_mailbox) snapshot.data.pe_pending_mailbox = [];
-        
-        snapshot.data.pe_pending_mailbox.push(lead);
-        snapshot.markModified('data');
-        await snapshot.save();
-      } catch (e) { console.error('Cloud Mailbox Error:', e.message); }
+      // 📱 NEW: Cloud Mailbox for Laptop-Free AI
+      pendingLeads.push(lead);
     }
 
     // ── Notify Agent (Dashboard & Email)
@@ -1056,9 +1049,9 @@ app.post('/api/notify-lead', async (req, res) => {
         let leads = snapshot.data.pe_leads;
         let wasString = typeof leads === 'string';
         if (wasString) {
-          try { leads = JSON.parse(leads); } catch(e) { leads = []; }
+          try { leads = JSON.parse(leads); } catch (e) { leads = []; }
         }
-        
+
         if (Array.isArray(leads)) {
           leads.unshift(lead);
           snapshot.data.pe_leads = wasString ? JSON.stringify(leads) : leads;
@@ -1092,7 +1085,7 @@ app.post('/api/calls', async (req, res) => {
     let calls = snapshot.data.pe_calls || [];
     const wasString = typeof calls === 'string';
     if (wasString) {
-      try { calls = JSON.parse(calls); } catch(e) { calls = []; }
+      try { calls = JSON.parse(calls); } catch (e) { calls = []; }
     }
 
     const newCall = {
@@ -1101,7 +1094,7 @@ app.post('/api/calls', async (req, res) => {
       urgency: call.urgency || 3,
       created_at: call.created_at || new Date().toISOString()
     };
-    
+
     calls.unshift(newCall);
 
     // Keep only last 100 calls to save space
@@ -1128,10 +1121,10 @@ app.post('/api/mobile/notify', async (req, res) => {
   try {
     const { lead, type } = req.body;
     console.log(`📱 Notifying Mobile App: New ${type || 'Action'} for ${lead.name}`);
-    
+
     // In a production app, you would send a FCM (Firebase Cloud Messaging) 
     // or OneSignal push notification here to wake up the phone.
-    
+
     res.json({ success: true, message: 'Mobile notification dispatched' });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -1143,29 +1136,19 @@ app.get('/api/mobile/version', (req, res) => {
 });
 
 // 🧠 $0-COST CLOUD BRAIN (Manual Script on Vercel)
-app.get('/api/mobile/poll-leads', async (req, res) => {
-  try {
-    const snapshot = await DataSnapshot.findOne({ email: AGENT_EMAIL });
-    if (snapshot && snapshot.data && snapshot.data.pe_pending_mailbox && snapshot.data.pe_pending_mailbox.length > 0) {
-      const mailbox = snapshot.data.pe_pending_mailbox;
-      const lead = mailbox.shift();
-      
-      snapshot.data.pe_pending_mailbox = mailbox;
-      snapshot.markModified('data');
-      await snapshot.save();
-      
-      return res.json({ lead });
-    }
-    res.json({ lead: null });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
+let pendingLeads = []; // Global mailbox for laptop-free operation
+
+app.get('/api/mobile/poll-leads', (req, res) => {
+  if (pendingLeads.length > 0) {
+    return res.json({ lead: pendingLeads.shift() });
   }
+  res.json({ lead: null });
 });
 
 app.post('/api/ai/chat', (req, res) => {
   const { input, state, lead } = req.body;
   const text = (input || "").toLowerCase();
-  
+
   let reply = "";
   let nextState = state;
 
@@ -1229,10 +1212,10 @@ app.post('/api/marketing/kit', async (req, res) => {
       return res.status(404).json({ error: 'Agent properties not found' });
     }
 
-    const properties = typeof snapshot.data.pe_properties === 'string' 
-      ? JSON.parse(snapshot.data.pe_properties) 
+    const properties = typeof snapshot.data.pe_properties === 'string'
+      ? JSON.parse(snapshot.data.pe_properties)
       : snapshot.data.pe_properties;
-    
+
     const prop = properties.find(p => p.id === propertyId);
     if (!prop) return res.status(404).json({ error: 'Property not found' });
 
@@ -1272,11 +1255,11 @@ app.post('/api/social/publish', async (req, res) => {
     const { platform, accessToken, mediaUrl, caption, pageId } = req.body;
     if (!platform || !accessToken) return res.status(400).json({ error: 'platform and accessToken required' });
 
-    const fetch = (...args) => import('node-fetch').then(({default: f}) => f(...args));
+    const fetch = (...args) => import('node-fetch').then(({ default: f }) => f(...args));
 
-    if(platform === 'instagram') {
+    if (platform === 'instagram') {
       const igId = pageId || process.env.META_IG_USER_ID;
-      if(!igId) return res.status(400).json({ error: 'META_IG_USER_ID not set' });
+      if (!igId) return res.status(400).json({ error: 'META_IG_USER_ID not set' });
 
       // Step 1: Create container
       const containerRes = await fetch(`https://graph.facebook.com/v19.0/${igId}/media`, {
@@ -1297,9 +1280,9 @@ app.post('/api/social/publish', async (req, res) => {
       return res.json({ success: !!published.id, post_id: published.id, platform: 'instagram' });
     }
 
-    if(platform === 'facebook') {
+    if (platform === 'facebook') {
       const fbPageId = pageId || process.env.META_FB_PAGE_ID;
-      if(!fbPageId) return res.status(400).json({ error: 'META_FB_PAGE_ID not set' });
+      if (!fbPageId) return res.status(400).json({ error: 'META_FB_PAGE_ID not set' });
 
       const postRes = await fetch(`https://graph.facebook.com/v19.0/${fbPageId}/photos`, {
         method: 'POST',

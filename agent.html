@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -12,6 +13,7 @@
             --text: #ffffff;
             --danger: #ff4d4d;
         }
+
         body {
             margin: 0;
             background-color: var(--bg);
@@ -24,37 +26,51 @@
             justify-content: space-around;
             overflow: hidden;
         }
+
         .header {
             text-align: center;
             margin-top: 20px;
         }
+
         .header h1 {
             color: var(--accent);
             font-size: 24px;
             letter-spacing: 1px;
         }
+
         .brain-container {
             width: 250px;
             height: 250px;
-            background: radial-gradient(circle, rgba(255,204,51,0.1) 0%, rgba(5,7,10,1) 70%);
+            background: radial-gradient(circle, rgba(255, 204, 51, 0.1) 0%, rgba(5, 7, 10, 1) 70%);
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
             position: relative;
         }
+
         .brain-img {
             width: 120px;
             height: 120px;
             transition: transform 0.2s;
         }
+
         .brain-img.pulse {
             animation: pulse 1s infinite alternate;
         }
+
         @keyframes pulse {
-            from { transform: scale(1); filter: drop-shadow(0 0 5px var(--accent)); }
-            to { transform: scale(1.1); filter: drop-shadow(0 0 20px var(--accent)); }
+            from {
+                transform: scale(1);
+                filter: drop-shadow(0 0 5px var(--accent));
+            }
+
+            to {
+                transform: scale(1.1);
+                filter: drop-shadow(0 0 20px var(--accent));
+            }
         }
+
         .status-badge {
             background: var(--card);
             padding: 15px 30px;
@@ -65,6 +81,7 @@
             min-width: 200px;
             text-align: center;
         }
+
         .btn {
             background: var(--accent);
             color: #000;
@@ -74,13 +91,15 @@
             font-size: 18px;
             border: none;
             cursor: pointer;
-            box-shadow: 0 4px 15px rgba(255,204,51,0.3);
+            box-shadow: 0 4px 15px rgba(255, 204, 51, 0.3);
             transition: 0.3s;
         }
+
         .btn.active {
             background: var(--danger);
             color: #fff;
         }
+
         .log-box {
             font-size: 12px;
             color: #888;
@@ -90,6 +109,7 @@
         }
     </style>
 </head>
+
 <body>
 
     <div class="header">
@@ -110,7 +130,7 @@
         let isActive = false;
         let sessionState = 'INITIAL';
         let currentLead = null;
-        
+
         const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
         recognition.continuous = false;
         recognition.lang = 'en-US';
@@ -123,13 +143,13 @@
         };
 
         recognition.onend = () => {
-            if(isActive) updateLog("Aria is listening...");
+            if (isActive) updateLog("Aria is listening...");
         };
 
         async function processAILogic(input) {
             const statusBox = document.getElementById('status');
             statusBox.innerText = "Aria is thinking...";
-            
+
             try {
                 const response = await fetch('/api/ai/chat', {
                     method: 'POST',
@@ -147,7 +167,7 @@
         function speak(text) {
             const statusBox = document.getElementById('status');
             const brainIcon = document.getElementById('brain-icon');
-            
+
             statusBox.innerText = "Aria is Speaking...";
             brainIcon.innerText = "🧠";
             brainIcon.classList.add('pulse');
@@ -158,7 +178,7 @@
                 statusBox.innerText = "Aria is Listening...";
                 try {
                     recognition.start();
-                } catch(e) {}
+                } catch (e) { }
             };
             window.speechSynthesis.speak(utterance);
         }
@@ -169,7 +189,7 @@
             const brainIcon = document.getElementById('brain-icon');
 
             isActive = !isActive;
-            
+
             if (isActive) {
                 btn.innerText = "Turn Off AI Agent";
                 btn.classList.add('active');
@@ -190,7 +210,21 @@
             document.getElementById('log').innerText = msg;
         }
 
-        // 📩 THE HEARTBEAT: Checks for new leads every 5 seconds
+        // 🚀 AUTO-START: If lead info is in the URL (from WhatsApp link)
+        window.onload = () => {
+            const params = new URLSearchParams(window.location.search);
+            const leadName = params.get('name');
+            if (leadName) {
+                currentLead = { name: leadName, phone: params.get('phone') };
+                updateLog("Awaiting your permission to start call with " + leadName);
+                
+                // We show a "Start AI Call" prompt for browser security
+                document.getElementById('status').innerText = "Incoming AI Call...";
+                document.getElementById('main-btn').innerText = "Accept AI Call";
+            }
+        };
+
+        // 📩 THE HEARTBEAT: Checks for new leads every 5 seconds (for the Agent's phone)
         setInterval(async () => {
             if (!isActive) return;
             try {
@@ -200,7 +234,7 @@
                     currentLead = data.lead;
                     sessionState = 'INITIAL';
                     updateLog("🔥 HEARTBEAT: New Lead Detected - " + data.lead.name);
-                    processAILogic(""); 
+                    processAILogic("");
                 }
             } catch (e) {
                 console.log("Polling...");
@@ -208,4 +242,5 @@
         }, 5000);
     </script>
 </body>
+
 </html>

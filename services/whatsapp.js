@@ -211,10 +211,32 @@ _PropEdge CRM_`;
   return sendWhatsAppText(agentPhone, msg);
 }
 
+/**
+ * Send AI Voice Call Link — sent 1 second after lead submission
+ */
+async function sendAICallLink(clientPhone, lead) {
+  const callLink = `https://real-estate-web-liard-rho.vercel.app/agent.html?name=${encodeURIComponent(lead.name)}&phone=${lead.phone}`;
+  const msg =
+`🏠 *PropEdge AI — Instant Call*
+
+Hi ${lead.name},
+
+I'm *Aria*, your AI property specialist. I see you're interested in ${lead.property_interest || 'our properties'}. 
+
+I'm ready to answer your questions and book a visit for you right now over a quick voice call.
+
+📞 *Tap to start AI Voice Call:*
+${callLink}
+
+_Aria @ PropEdge Real Estate_`;
+  return sendWhatsAppText(clientPhone, msg);
+}
+
 module.exports = {
   sendWhatsAppText,
   sendBookingCreatedMsg,
   sendBookingConfirmedMsg,
   sendVisitReminderMsg,
-  sendNewLeadNotification
+  sendNewLeadNotification,
+  sendAICallLink
 };
