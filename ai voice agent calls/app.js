@@ -188,6 +188,7 @@ app.ws('/connection', (ws) => {
             leadName:   lead.name,
             leadPhone:  lead.phone,
             outcome:    outcome,
+            urgency:    gptService.getUrgencyScore ? gptService.getUrgencyScore() : 3,
             transcript: transcript,
             duration:   interactionCount > 1 ? interactionCount * 15 : 0 // rough estimate
           };
@@ -365,31 +366,13 @@ app.post('/call-status', async (req, res) => {
     }, delay);
 
   } else {
-    // ── All 3 attempts failed → send fallback email
-    console.log(`📧 All ${attempts} call attempts failed for ${lead.name}. Sending fallback email...`.red);
-
+    // ── All 3 attempts failed → send final internal email notification
+    console.log(`✉️ All ${attempts} call attempts failed for ${lead.name}. Sending fallback notification...`.magenta);
     if (lead.email) {
       await sendFallbackEmail(lead);
     } else {
       console.log(`⚠️ No email on file for ${lead.name} — cannot send fallback email.`.yellow);
     }
-
-    // Notify agent dashboard too
-    try {
-      await fetch(`${BACKEND_URL}/api/leads`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          agentEmail: process.env.AGENT_EMAIL,
-          lead: {
-            ...lead,
-            notes: `⚠️ AI tried calling 3 times — no answer. Fallback email sent.`,
-            status: 'no_answer',
-          },
-        }),
-      });
-    } catch (e) { /* non-blocking */ }
-
     clearRetry(lead.phone);
   }
 });

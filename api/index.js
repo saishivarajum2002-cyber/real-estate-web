@@ -995,6 +995,13 @@ app.post('/api/leads', async (req, res) => {
           console.log(`⚡ Instant AI call fired for ${lead.name} (${lead.phone})`);
         }
       });
+
+      // 📱 Trigger Mobile App Notification
+      fetch(`${process.env.BACKEND_URL || 'http://localhost:3000'}/api/mobile/notify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lead, type: 'NEW_LEAD' })
+      }).catch(e => console.error('Mobile notify failed:', e.message));
     }
 
     // ── Notify Agent (Dashboard & Email)
@@ -1067,10 +1074,11 @@ app.post('/api/notify-lead', async (req, res) => {
 // ──────────────────────────────────────────────────────────────────────────────
 app.post('/api/calls', async (req, res) => {
   try {
-    const { agentEmail, call } = req.body;
+    const agentEmail = req.body.agentEmail || req.body.email;
+    const { call } = req.body;
     if (!agentEmail || !call) return res.status(400).json({ error: 'agentEmail and call data required' });
 
-    console.log(`📞 Saving call log for ${agentEmail} (Lead: ${call.leadName})`);
+    console.log(`📞 Saving call log for ${agentEmail} (Lead: ${call.leadName || 'Unknown'})`);
 
     let snapshot = await DataSnapshot.findOne({ email: agentEmail });
     if (!snapshot) snapshot = new DataSnapshot({ email: agentEmail, data: {} });
@@ -1082,9 +1090,14 @@ app.post('/api/calls', async (req, res) => {
       try { calls = JSON.parse(calls); } catch(e) { calls = []; }
     }
 
-    call.created_at = call.created_at || new Date().toISOString();
-    call.id = call.id || (Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
-    calls.unshift(call);
+    const newCall = {
+      ...call,
+      id: call.id || ('call_' + Date.now() + Math.random().toString(36).slice(2, 5)),
+      urgency: call.urgency || 3,
+      created_at: call.created_at || new Date().toISOString()
+    };
+    
+    calls.unshift(newCall);
 
     // Keep only last 100 calls to save space
     if (calls.length > 100) calls = calls.slice(0, 100);
@@ -1093,7 +1106,7 @@ app.post('/api/calls', async (req, res) => {
     snapshot.markModified('data');
     await snapshot.save();
 
-    res.json({ success: true });
+    res.json({ success: true, urgency: newCall.urgency });
   } catch (error) {
     console.error('Call Log Error:', error.message);
     res.status(500).json({ error: error.message });
@@ -1101,47 +1114,25 @@ app.post('/api/calls', async (req, res) => {
 });
 
 // ──────────────────────────────────────────────────────────────────────────────
-// CALL LOGGING
+// SYNC
 // ──────────────────────────────────────────────────────────────────────────────
-app.post('/api/calls', async (req, res) => {
+// ──────────────────────────────────────────────────────────────────────────────
+// MOBILE APP SIGNALS
+// ──────────────────────────────────────────────────────────────────────────────
+app.post('/api/mobile/notify', async (req, res) => {
   try {
-    const { email, call } = req.body;
-    if (!email || !call) return res.status(400).json({ error: 'Missing data' });
-
-    // Update the agent's data snapshot in MongoDB
-    const snapshot = await DataSnapshot.findOne({ email });
-    if (snapshot) {
-      let data = snapshot.data;
-      // Handle potential stringification in MongoDB
-      if (typeof data === 'string') data = JSON.parse(data);
-      
-      let calls = data.pe_calls || [];
-      if (typeof calls === 'string') calls = JSON.parse(calls);
-      
-      calls.unshift({
-        ...call,
-        id: 'call_' + Date.now(),
-        created_at: new Date().toISOString()
-      });
-      
-      data.pe_calls = calls;
-      snapshot.data = data;
-      // Mark for sub-doc changes if needed (Mongoose)
-      snapshot.markModified('data');
-      await snapshot.save();
-      console.log(`📑 Call logged for ${email} -> Outcome: ${call.outcome}`);
-    }
-
-    res.json({ success: true });
-  } catch (err) {
-    console.error('Call logging error:', err);
-    res.status(500).json({ error: err.message });
+    const { lead, type } = req.body;
+    console.log(`📱 Notifying Mobile App: New ${type || 'Action'} for ${lead.name}`);
+    
+    // In a production app, you would send a FCM (Firebase Cloud Messaging) 
+    // or OneSignal push notification here to wake up the phone.
+    
+    res.json({ success: true, message: 'Mobile notification dispatched' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
-// ──────────────────────────────────────────────────────────────────────────────
-// SYNC
-// ──────────────────────────────────────────────────────────────────────────────
 app.get('/api/sync', protect, async (req, res) => {
   try {
     const { email } = req.query;

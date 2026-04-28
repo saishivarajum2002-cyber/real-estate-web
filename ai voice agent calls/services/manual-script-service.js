@@ -27,6 +27,20 @@ class ManualScriptService extends EventEmitter {
     return 'In Progress';
   }
 
+  getUrgencyScore() {
+    let score = 3; // Baseline 3/10
+    const fullText = this.history.map(h => h.text.toLowerCase()).join(' ');
+    
+    // High urgency triggers
+    if (this.matches(fullText, ['cash ready', 'buy now', 'ready to buy', 'buy today', 'ready to close', 'this week', 'urgent'])) score += 5;
+    // Medium urgency triggers
+    if (this.matches(fullText, ['this month', 'soon', 'looking seriously', 'finance ready', 'pre-approved'])) score += 3;
+    // Low urgency triggers
+    if (this.matches(fullText, ['just exploring', 'next year', 'not sure', 'just looking'])) score -= 2;
+
+    return Math.max(1, Math.min(10, score)); // Clamp between 1 and 10
+  }
+
   /**
    * Main entry point for transcribed text.
    */
@@ -36,9 +50,9 @@ class ManualScriptService extends EventEmitter {
     let response = '';
 
     // ── Global Keyword Checks
-    if (this.matches(input, ['human', 'agent', 'person', 'connect', 'talk to'])) {
-      this.emit('gptreply', { partialResponse: "Absolutely. One moment while I put you through to our lead agent, they'll be able to help you better from here." }, interactionCount);
-      const res = await transfer_call();
+    if (this.matches(input, ['human', 'agent', 'person', 'connect', 'talk to', 'buy now', 'cash ready', 'ready to close', 'ready to buy', 'buy today'])) {
+      this.emit('gptreply', { partialResponse: "Absolutely. Our lead agent is perfect for that. One moment while I put you through directly to them." }, interactionCount);
+      const res = await transfer_call({ callSid: this.callSid });
       return;
     }
 
