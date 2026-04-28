@@ -1,5 +1,6 @@
 import { Audio } from 'expo-av';
 import { io } from 'socket.io-client';
+import { Alert } from 'react-native';
 
 class AriaVoiceBridge {
   constructor() {
@@ -10,7 +11,21 @@ class AriaVoiceBridge {
 
   connect(backendUrl) {
     this.socket = io(backendUrl, { transports: ['websocket'] });
-    this.socket.on('connect', () => console.log('Connected to Aria AI'));
+    
+    this.socket.on('connect', () => console.log('📱 Connected to Aria AI Engine'));
+
+    // ── ⚡ NEW: HANDLE AUTOMATIC WAKE-UP
+    this.socket.on('incoming-lead', async (data) => {
+      console.log('⚡ Incoming Lead Signal Received:', data.lead.name);
+      
+      // Notify the user & start the stream immediately
+      Alert.alert('NEW LEAD ARRIVED', `${data.lead.name} is looking at ${data.lead.property_interest || 'a property'}. Aria is starting the conversation now.`);
+      
+      // Send 'start' event back to server to trigger opening line
+      this.socket.emit('start', { lead: data.lead });
+      this.startListening();
+    });
+
     this.socket.on('ai-audio-chunk', (base64Audio) => this.playAiVoice(base64Audio));
   }
 
@@ -24,8 +39,14 @@ class AriaVoiceBridge {
       );
       this.recording = recording;
       
-      // Monitor volume/audio levels for activity detection if needed
-      console.log('Aria is listening...');
+      this.recording.setOnRecordingStatusUpdate((status) => {
+        // Here you would implement logic to send raw base64 mic data to the server
+        if (status.isRecording) {
+           // this.socket.emit('media', { payload: status.metering });
+        }
+      });
+
+      console.log('🎙️ Aria is listening through your phone mic...');
     } catch (err) {
       console.error('Failed to start recording', err);
     }
