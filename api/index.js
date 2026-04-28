@@ -1135,7 +1135,38 @@ app.post('/api/mobile/notify', async (req, res) => {
 
 app.get('/api/mobile/version', (req, res) => {
   // Mobile app checks this to see if it needs an OTA Update
-  res.json({ version: 1.1, last_update: new Date().toISOString() });
+  res.json({ version: 1.2, last_update: new Date().toISOString() });
+});
+
+// ── 🧠 $0-COST CLOUD BRAIN (Manual Script on Vercel)
+app.post('/api/ai/chat', (req, res) => {
+  const { input, state, lead } = req.body;
+  const text = (input || "").toLowerCase();
+  
+  let reply = "";
+  let nextState = state;
+
+  // Simple State Machine Logic (Free)
+  if (state === 'INITIAL') {
+    reply = `Great! To get things started, are you looking to buy for yourself or is this more of an investment?`;
+    nextState = 'DISCOVERY';
+  } else if (state === 'DISCOVERY') {
+    reply = `Got it. And what kind of property are you after? A villa, an apartment, or maybe something else?`;
+    nextState = 'QUAL';
+  } else if (state === 'QUAL') {
+    reply = `That works! Roughly what budget range are we looking at for this search?`;
+    nextState = 'TIMELINE';
+  } else if (state === 'TIMELINE') {
+    reply = `Perfect. Would you like to visit one of our top properties this weekend, or are you just exploring for now?`;
+    nextState = 'BOOKING';
+  } else if (state === 'BOOKING') {
+    reply = `Excellent choice. I'll have our lead agent, Sarah, send you the exact location details via WhatsApp right now. We're looking forward to seeing you!`;
+    nextState = 'END';
+  } else {
+    reply = "I've noted all your preferences. One of our specialists will reach out shortly with the best matches. Anything else I can help with?";
+  }
+
+  res.json({ reply, nextState, lead });
 });
 
 app.get('/api/sync', protect, async (req, res) => {
