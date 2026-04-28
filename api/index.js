@@ -1135,7 +1135,7 @@ app.post('/api/mobile/notify', async (req, res) => {
 
 app.get('/api/mobile/version', (req, res) => {
   // Mobile app checks this to see if it needs an OTA Update
-  res.json({ version: 1.0, last_update: new Date().toISOString() });
+  res.json({ version: 1.1, last_update: new Date().toISOString() });
 });
 
 app.get('/api/sync', protect, async (req, res) => {
