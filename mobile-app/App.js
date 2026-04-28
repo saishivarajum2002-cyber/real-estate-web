@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import AriaVoiceBridge from './AriaVoiceBridge';
 
-const BACKEND_URL = 'https://YOUR-VERCEL-DOMAIN.vercel.app'; // <--- REPLACE THIS WITH YOUR REAL VERCEL URL!
+const BACKEND_URL = 'https://real-estate-web-liard-rho.vercel.app'; // <--- REPLACE THIS WITH YOUR REAL VERCEL URL!
 
 export default function App() {
   const [isAgentActive, setIsAgentActive] = useState(false);
@@ -27,12 +27,12 @@ export default function App() {
 
   const toggleAgent = () => {
     if (isAgentActive) {
-       AriaVoiceBridge.stop();
-       setStatus('Idle');
+      AriaVoiceBridge.stop();
+      setStatus('Idle');
     } else {
-       AriaVoiceBridge.connect(BACKEND_URL);
-       AriaVoiceBridge.startListening();
-       setStatus('Aria is Live & Handling Calls');
+      AriaVoiceBridge.connect(BACKEND_URL);
+      AriaVoiceBridge.startListening();
+      setStatus('Aria is Live & Handling Calls');
     }
     setIsAgentActive(!isAgentActive);
   };
@@ -59,8 +59,8 @@ export default function App() {
         <Text style={styles.statusText}>{status}</Text>
       </View>
 
-      <TouchableOpacity 
-        style={[styles.powerBtn, isAgentActive ? styles.powerBtnOff : styles.powerBtnOn]} 
+      <TouchableOpacity
+        style={[styles.powerBtn, isAgentActive ? styles.powerBtnOff : styles.powerBtnOn]}
         onPress={toggleAgent}
       >
         <Text style={styles.powerBtnText}>

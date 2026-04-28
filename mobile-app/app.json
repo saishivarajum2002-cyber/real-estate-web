@@ -4,13 +4,9 @@
     "slug": "propedge-mobile-agent",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "version": "1.0.0",
+    "orientation": "portrait",
     "userInterfaceStyle": "dark",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#05070a"
-    },
     "assetBundlePatterns": [
       "**/*"
     ],
@@ -18,11 +14,21 @@
       "supportsTablet": true
     },
     "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#05070a"
-      },
-      "package": "com.propedge.agent"
+      "package": "com.propedge.agent",
+      "permissions": ["RECORD_AUDIO", "MODIFY_AUDIO_SETTINGS"]
+    },
+    "plugins": [
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Allow PropEdge Agent to access your microphone to talk to leads."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "58214714-da16-41e6-9977-b6108048af7a"
+      }
     }
   }
 }
