@@ -15,15 +15,34 @@ export default function App() {
       try {
         const res = await fetch(`${BACKEND_URL}/api/mobile/version`);
         const data = await res.json();
-        if (data.version > 1.0) { // Current version
+        if (data.version > 1.0) {
           setHasUpdate(true);
         }
       } catch (e) {
         console.log('Update check failed');
       }
     };
+
+    // 📩 NEW: Polling for incoming Leads (Laptop-Free)
+    const pollForLeads = async () => {
+      if (!isAgentActive) return; // Only listen if agent is "On"
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/mobile/poll-leads`);
+        const data = await res.json();
+        if (data && data.lead) {
+          console.log('🔔 New lead received from cloud:', data.lead.name);
+          setStatus(`Calling ${data.lead.name}...`);
+          AriaVoiceBridge.triggerCallWithLead(data.lead);
+        }
+      } catch (e) {
+        console.log('Lead poll failed');
+      }
+    };
+
     checkUpdates();
-  }, []);
+    const interval = setInterval(pollForLeads, 5000); // Check every 5 seconds
+    return () => clearInterval(interval);
+  }, [isAgentActive]);
 
   const toggleAgent = () => {
     if (isAgentActive) {

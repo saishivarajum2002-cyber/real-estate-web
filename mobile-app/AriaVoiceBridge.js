@@ -20,6 +20,10 @@ class AriaVoiceBridge {
     console.log('📱 $0-Cost Native Aria Bridge Active');
   }
 
+  async triggerCallWithLead(lead) {
+    return this.handleIncomingLead(lead);
+  }
+
   async handleIncomingLead(lead) {
     this.leadInfo = lead;
     this.sessionState = 'INITIAL';

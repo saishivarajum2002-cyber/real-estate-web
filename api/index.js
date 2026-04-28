@@ -996,12 +996,8 @@ app.post('/api/leads', async (req, res) => {
         }
       });
 
-      // 📱 Trigger Mobile App Notification
-      fetch(`${process.env.BACKEND_URL || 'http://localhost:3000'}/api/mobile/notify`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lead, type: 'NEW_LEAD' })
-      }).catch(e => console.error('Mobile notify failed:', e.message));
+      // 📱 NEW: Cloud Mailbox for Laptop-Free AI
+      pendingLeads.push(lead);
     }
 
     // ── Notify Agent (Dashboard & Email)
@@ -1134,11 +1130,19 @@ app.post('/api/mobile/notify', async (req, res) => {
 });
 
 app.get('/api/mobile/version', (req, res) => {
-  // Mobile app checks this to see if it needs an OTA Update
   res.json({ version: 1.2, last_update: new Date().toISOString() });
 });
 
-// ── 🧠 $0-COST CLOUD BRAIN (Manual Script on Vercel)
+// 🧠 $0-COST CLOUD BRAIN (Manual Script on Vercel)
+let pendingLeads = []; // Global mailbox for laptop-free operation
+
+app.get('/api/mobile/poll-leads', (req, res) => {
+  if (pendingLeads.length > 0) {
+    return res.json({ lead: pendingLeads.shift() });
+  }
+  res.json({ lead: null });
+});
+
 app.post('/api/ai/chat', (req, res) => {
   const { input, state, lead } = req.body;
   const text = (input || "").toLowerCase();
