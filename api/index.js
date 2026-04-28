@@ -996,8 +996,17 @@ app.post('/api/leads', async (req, res) => {
         }
       });
 
-      // 📱 NEW: Cloud Mailbox for Laptop-Free AI
-      pendingLeads.push(lead);
+      // 📱 NEW: Cloud Mailbox for Laptop-Free AI (MongoDB Permanent)
+      try {
+        let snapshot = await DataSnapshot.findOne({ email: agentEmail });
+        if (!snapshot) snapshot = new DataSnapshot({ email: agentEmail, data: {} });
+        if (!snapshot.data) snapshot.data = {};
+        if (!snapshot.data.pe_pending_mailbox) snapshot.data.pe_pending_mailbox = [];
+        
+        snapshot.data.pe_pending_mailbox.push(lead);
+        snapshot.markModified('data');
+        await snapshot.save();
+      } catch (e) { console.error('Cloud Mailbox Error:', e.message); }
     }
 
     // ── Notify Agent (Dashboard & Email)
@@ -1134,13 +1143,23 @@ app.get('/api/mobile/version', (req, res) => {
 });
 
 // 🧠 $0-COST CLOUD BRAIN (Manual Script on Vercel)
-let pendingLeads = []; // Global mailbox for laptop-free operation
-
-app.get('/api/mobile/poll-leads', (req, res) => {
-  if (pendingLeads.length > 0) {
-    return res.json({ lead: pendingLeads.shift() });
+app.get('/api/mobile/poll-leads', async (req, res) => {
+  try {
+    const snapshot = await DataSnapshot.findOne({ email: AGENT_EMAIL });
+    if (snapshot && snapshot.data && snapshot.data.pe_pending_mailbox && snapshot.data.pe_pending_mailbox.length > 0) {
+      const mailbox = snapshot.data.pe_pending_mailbox;
+      const lead = mailbox.shift();
+      
+      snapshot.data.pe_pending_mailbox = mailbox;
+      snapshot.markModified('data');
+      await snapshot.save();
+      
+      return res.json({ lead });
+    }
+    res.json({ lead: null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-  res.json({ lead: null });
 });
 
 app.post('/api/ai/chat', (req, res) => {
