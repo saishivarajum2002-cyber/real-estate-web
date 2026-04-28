@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import AriaVoiceBridge from './AriaVoiceBridge';
 
-const BACKEND_URL = 'https://your-vercel-app.vercel.app';
+const BACKEND_URL = 'https://YOUR-VERCEL-DOMAIN.vercel.app'; // <--- REPLACE THIS WITH YOUR REAL VERCEL URL!
 
 export default function App() {
   const [isAgentActive, setIsAgentActive] = useState(false);
