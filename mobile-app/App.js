@@ -7,6 +7,23 @@ const BACKEND_URL = 'https://your-vercel-app.vercel.app';
 export default function App() {
   const [isAgentActive, setIsAgentActive] = useState(false);
   const [status, setStatus] = useState('Idle');
+  const [hasUpdate, setHasUpdate] = useState(false);
+
+  useEffect(() => {
+    // Check for "Over-the-Air" Updates from Vercel
+    const checkUpdates = async () => {
+      try {
+        const res = await fetch(`${BACKEND_URL}/api/mobile/version`);
+        const data = await res.json();
+        if (data.version > 1.0) { // Current version
+          setHasUpdate(true);
+        }
+      } catch (e) {
+        console.log('Update check failed');
+      }
+    };
+    checkUpdates();
+  }, []);
 
   const toggleAgent = () => {
     if (isAgentActive) {
@@ -26,6 +43,12 @@ export default function App() {
       <View style={styles.header}>
         <Text style={styles.logo}>PropEdge Agent</Text>
       </View>
+
+      {hasUpdate && (
+        <View style={styles.updateBanner}>
+          <Text style={styles.updateText}>✨ New AI Personality Update Available!</Text>
+        </View>
+      )}
 
       <View style={styles.brainContainer}>
         <View style={[styles.pulse, isAgentActive && styles.pulseActive]} />
@@ -64,5 +87,7 @@ const styles = StyleSheet.create({
   powerBtnOn: { backgroundColor: '#f0c040' },
   powerBtnOff: { backgroundColor: '#e05060' },
   powerBtnText: { fontWeight: '900', fontSize: 16, color: '#000' },
+  updateBanner: { backgroundColor: 'rgba(240, 192, 64, 0.2)', padding: 10, borderRadius: 10, marginBottom: 20, borderWeight: 1, borderColor: '#f0c040' },
+  updateText: { color: '#f0c040', fontSize: 12, fontWeight: '800' },
   footer: { color: 'rgba(255,255,255,0.3)', fontSize: 12 }
 });
